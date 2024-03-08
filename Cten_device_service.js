@@ -26,7 +26,9 @@ if (process.env.MQTT_BROKER_URL) {
       "power_status":'',
       "milleage_unit":''
     }, 
-    "satellites": 0,"kilometrage":0, "sim":''};
+    "satellites": 0,"kilometrage":0, "sim":'', "rawString":""};
+
+    let sensorObj = {"serialId":null, "timestamp": 1680180853, "message":"", "rawString":"", "command":""}
 
     server.on('connection', function(sock) {
         console.log('CONNECTED: ' + sock.remoteAddress + ':' + sock.remotePort);
@@ -41,7 +43,7 @@ if (process.env.MQTT_BROKER_URL) {
                 const str = buf.toString("hex");
                 if(str.length > 70){
                   console.log(str)
-
+                      payloadObj.rawString = str
                             ///
 
                     //serial ID
@@ -124,20 +126,33 @@ if (process.env.MQTT_BROKER_URL) {
                       let hexunlockmedium = str.split("").splice(88, 2).join("")
                       payloadObj.unlock_medium = hex2bin(hexunlockmedium)[7] == "1" ? "Unlock by RFID" : hex2bin(hexunlockmedium)[6] == "1" ? "Unlock by GPRS" : hex2bin(hexunlockmedium)[5] == "1" ? "Unlock by SMS" : hex2bin(hexunlockmedium)[4] == "1" ? "Unlock by auto unlock" : "None of these"
                 // ////
-                  console.log(payloadObj)
 
-                  client.publish(
-                    process.env.PUBLISH_TOPIC_TRACK,
-                    JSON.stringify(payloadObj),
-                  );
 
-                  // client.publish(
-                  //   process.env.PUBLISH_TOPIC_SENSOR,
-                  //   JSON.stringify(sensorObj),
-                  // );
 
+                }else{
+                  sensorObj.rawString = str
+                  let  _hexcommand = str.match(/../g)[2]
+                  sensorObj.command = _hexcommand
+
+                  let _hexSerialId = str.split("").splice(10, 8).join("")
+                  sensorObj.serialId = (_hexSerialId.match(/../g).map((elem,index) => (index==1||index==2 ? (parseInt("0x"+elem)-parseInt("0x80")==0 ? "00" : parseInt("0x"+elem)-parseInt("0x80")) : parseInt("0x"+elem)%10<1 ? "0" +parseInt("0x"+elem) : parseInt("0x"+elem) ))).join("").toString()
+
+                  let _hexmessage = str.split("").splice(18, 2).join("")
+                  sensorObj.message = _hexmessage
 
                 }
+
+                console.log(payloadObj)
+
+                client.publish(
+                  process.env.PUBLISH_TOPIC_TRACK,
+                  JSON.stringify(payloadObj),
+                );
+
+                client.publish(
+                  process.env.PUBLISH_TOPIC_SENSOR,
+                  JSON.stringify(sensorObj),
+                );
                 
 
     
